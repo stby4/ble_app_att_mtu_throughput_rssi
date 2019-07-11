@@ -492,12 +492,12 @@ static void amts_evt_handler(nrf_ble_amts_evt_t evt)
                          NRF_LOG_FLOAT(throughput_kbps));
             NRF_LOG_INFO("=============================");
             NRF_LOG_INFO("Sent %u bytes of ATT payload.", evt.bytes_transfered_cnt);
-            NRF_LOG_INFO("Link budget: %d", m_rssi_data.link_budget);
+            NRF_LOG_INFO("Link budget: %d dB", m_rssi_data.link_budget);
 
             if(m_rssi_data.range_multiplier <= m_rssi_data.range_multiplier_max) {
                 NRF_LOG_INFO("Range multiplier: %d", m_rssi_data.range_multiplier);
             } else {
-                NRF_LOG_INFO("Range multiplier: %d", m_rssi_data.range_multiplier_max);
+                NRF_LOG_INFO("Range multiplier: %d+", m_rssi_data.range_multiplier_max);
             }
 
             if(m_rssi_data.sum != 0)
