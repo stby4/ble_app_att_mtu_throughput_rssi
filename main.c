@@ -45,7 +45,6 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
-#include <unistd.h>
 
 #include "amt.h"
 #include "counter.h"
@@ -91,6 +90,7 @@
 #define PROGRESS_LED                    BSP_BOARD_LED_2
 #define DONE_LED                        BSP_BOARD_LED_3
 
+#define BOARD_START_BUTTON              BSP_BUTTON_1
 #define BOARD_TESTER_BUTTON             BSP_BUTTON_2                                    /**< Button to press at the beginning of the test to indicate that this board is connected to the PC and takes input from it via the UART. */
 #define BOARD_DUMMY_BUTTON              BSP_BUTTON_3                                    /**< Button to press at the beginning of the test to indicate that this board is standalone (automatic behavior). */
 #define BUTTON_DETECTION_DELAY          APP_TIMER_TICKS(50)                             /**< Delay from a GPIOTE event until a button is reported as pushed (in number of timer ticks). */
@@ -181,6 +181,7 @@ static bool volatile m_mtu_exchanged;
 static bool volatile m_data_length_updated;
 static bool volatile m_phy_updated;
 static bool volatile m_conn_interval_configured;
+static bool volatile m_start_confirmed;
 static rssi_data_t   m_rssi_data;
 
 static uint16_t m_conn_handle = BLE_CONN_HANDLE_INVALID;    /**< Handle of the current BLE connection .*/
@@ -804,6 +805,13 @@ static void button_evt_handler(uint8_t pin_no, uint8_t button_action)
 {
     switch (pin_no)
     {
+
+        case BOARD_START_BUTTON:
+        {
+            NRF_LOG_INFO("The test will start.");
+            m_start_confirmed = true;
+        } break;
+
         case BOARD_TESTER_BUTTON:
         {
             NRF_LOG_INFO("This board will act as tester.");
@@ -844,6 +852,7 @@ static void buttons_init(void)
    // The array must be static because a pointer to it will be saved in the button library.
     static app_button_cfg_t buttons[] =
     {
+        {BOARD_START_BUTTON, false, BUTTON_PULL, button_evt_handler},
         {BOARD_TESTER_BUTTON, false, BUTTON_PULL, button_evt_handler},
         {BOARD_DUMMY_BUTTON,  false, BUTTON_PULL, button_evt_handler}
     };
@@ -1055,6 +1064,9 @@ void test_begin(void)
     NRF_LOG_INFO("Preparing the test.");
     NRF_LOG_FLUSH();
 
+
+    buttons_enable();
+
 #if defined(S132)
     // PHY does not need to be updated for s132.
      m_phy_updated = true;
@@ -1083,7 +1095,6 @@ void test_begin(void)
 
 static void test_run(void)
 {
-    sleep(2000);
     counter_start();
     nrf_ble_amts_notif_spam(&m_amts);
     app_timer_start(m_display_timer_id, DISPLAY_TIMER_UPDATE_INTERVAL, NULL);
@@ -1092,7 +1103,9 @@ static void test_run(void)
 
 static bool is_test_ready()
 {
-    return (   (m_board_role == BOARD_TESTER)
+    return (   
+            m_start_confirmed
+            && (m_board_role == BOARD_TESTER)
             && m_conn_interval_configured
             && m_notif_enabled
             && m_mtu_exchanged
@@ -1138,6 +1151,7 @@ static void test_terminate(void)
     m_data_length_updated      = false;
     m_phy_updated              = false;
     m_conn_interval_configured = false;
+    m_start_confirmed          = false;
 
     if (m_conn_handle != BLE_CONN_HANDLE_INVALID)
     {
@@ -1203,16 +1217,11 @@ static void display_timer_handler(void *p_context)
 		}
 		
 		if(m_rssi_data.link_budget > m_rssi_data.link_budget_max)
-        {
-            m_rssi_data.link_budget_max = m_rssi_data.link_budget;
-        }
-        
-		if(m_rssi_data.link_budget > m_rssi_data.link_budget_max)
-        {
-            m_rssi_data.link_budget_max = m_rssi_data.link_budget;
-        }
+                {
+                    m_rssi_data.link_budget_max = m_rssi_data.link_budget;
+                }
 		
-        m_rssi_data.range_multiplier = pow(10.0, (double)m_rssi_data.link_budget/20.0);
+                m_rssi_data.range_multiplier = pow(10.0, (double)m_rssi_data.link_budget/20.0);
 	}
 }
 
@@ -1245,6 +1254,8 @@ void cli_start(void)
 int main(void)
 {
     // Initialize.
+    m_start_confirmed = false;
+
     log_init();
     cli_init();
     leds_init();
