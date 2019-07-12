@@ -1062,6 +1062,7 @@ void test_begin(void)
     m_rssi_data.range_multiplier_max = 500;
 
     NRF_LOG_INFO("Preparing the test.");
+    NRF_LOG_INFO("Press Button 1 to start the test.");
     NRF_LOG_FLUSH();
 
 
